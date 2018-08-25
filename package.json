@@ -1,0 +1,38 @@
+{
+  "name": "myou-website",
+  "version": "0.0.1",
+  "description": "Myou website generator.",
+  "dependencies": {
+    "babel-core": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "codemirror-highlight-node": "^1.0.2",
+    "coffeescript": "^2.2.4",
+    "fs-extra": "^5.0.0",
+    "moment": "^2.20.1",
+    "myou-applet": "^1.0.0",
+    "myoui": "^0.2.1",
+    "prms": "^1.2.2",
+    "react-markdown": "^3.1.4",
+    "timsort": "^0.3.0",
+    "unfetch": "^2.1.2"
+  },
+  "optionalDependencies": {},
+  "devDependencies": {
+    "coffee-loader": "^0.9.0",
+    "file-loader": "^0.11.2",
+    "myou-tool": "^1.2.3",
+    "raw-loader": "^0.5.1",
+    "shelljs": "^0.7.8",
+    "source-map-loader": "^0.2.3",
+    "uglify-es-webpack-plugin": "^0.10.0",
+    "url-loader": "^1.0.1",
+    "webpack": "^3.10.0"
+  },
+  "repository": {},
+  "keywords": [],
+  "author": "Myou Software SC <myousoftware@gmail.com>",
+  "license": "MIT",
+  "bin":{
+      "myou-website": "command.js"
+  }
+}

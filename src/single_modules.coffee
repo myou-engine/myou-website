@@ -1,0 +1,7 @@
+require 'C:/Users/moond/pix/myou_web_test/applets/cross-platform/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/designed_for_web/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/easy/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/open-source/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/powerful/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/rotating_cube/main'
+require 'C:/Users/moond/pix/myou_web_test/applets/vr/main'
