@@ -5,7 +5,7 @@ if not fetch? then window.fetch = require('unfetch').default
 
 # Default basic styles
 body = document.body
-body.style.minHeight = "300vh"
+body.style.minHeight = "100vh"
 body.style.margin = 0
 
 app = document.getElementById('app')

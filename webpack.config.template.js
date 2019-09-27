@@ -67,7 +67,8 @@ var config = {
 }
 
 module.exports = (env) => {
-    if(env && (env.prod)){
+    if(env && (env.release)){
+        console.log('RELEASE')
         config.plugins.push(new UglifyJsPlugin({
             //minimize: true,
             mangle: true,
@@ -91,6 +92,7 @@ module.exports = (env) => {
             config.devtool = 'cheap-module-eval-source-map';
         }
     }else{
+        console.log('DEBUG')
         config.devtool = 'cheap-module-eval-source-map';
     }
     return config

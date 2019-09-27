@@ -26,6 +26,7 @@ exports.MainMenu = class MainMenu extends React.Component
                 title: item.attributes.title or item.id
                 link: item.attributes.link or '#' + item.id
                 color: mixins.color_to_chroma item.attributes.color, item.id
+                no_menu: item.attributes.no_menu
             if 'children' of item and item.attributes.submenu
                 menu_item.submenu = []
                 for subitem in item.children
@@ -64,7 +65,7 @@ exports.MainMenu = class MainMenu extends React.Component
                 zIndex:1000
             }
 
-            for item in @main_menu then do (item)=>
+            for item in @main_menu when not item.no_menu then do (item)=>
                 href = '#' + item.id
 
                 should_expand = => requestAnimationFrame =>

@@ -1,6 +1,8 @@
 /node_modules/
 /_cache/*
-
+seafile-ignore.txt
+/src/content
+webpack.config.js
 #temporal files
 *~
 .directory

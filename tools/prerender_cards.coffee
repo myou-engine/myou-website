@@ -4,7 +4,8 @@ process = require 'process'
 glob = require 'glob'
 require 'shelljs/global'
 
-module.exports = (input_dir, output_dir, working_dir)->
+module.exports = (settings)->
+    {input_dir, output_dir, working_dir, title='Web title', description='Description of the web', logo_text='WebLogo'} = settings
     if output_dir.startsWith '.'
         output_dir = path.join(working_dir, output_dir).replace /\\/g, '/'
 
@@ -17,14 +18,6 @@ module.exports = (input_dir, output_dir, working_dir)->
     if fs.existsSync output_dir #output_dir found
         console.log 'Clearing output dir: ', output_dir
         fs.emptyDirSync output_dir
-
-    assets_dir = path.join(__dirname, '../assets').replace /\\/g, '/'
-
-    output_assets_dir = path.join(output_dir,).replace /\\/g, '/'
-    output_webpack_build_dir = path.join(output_dir, 'src').replace /\\/g, '/'
-
-    root_dir = path.join(__dirname, '../').replace /\\/g, '/'
-
 
     mkdir '-p', output_dir
 
@@ -60,6 +53,7 @@ module.exports = (input_dir, output_dir, working_dir)->
             fs.writeFileSync filepath, text
         else
             # Extracting date from article metadata.
+            console.log text
             strdate = /Date:(.*)\n/.exec(text)[1]
 
         date = new Date strdate
@@ -79,6 +73,7 @@ module.exports = (input_dir, output_dir, working_dir)->
                 if filename == 'README' or extension != 'md'
                     continue
                 item.id = filename
+                console.log 'ITEM:', item.id, ipath
                 text = fs.readFileSync(ipath, 'utf8').toString()
                 type_match = /Type:(.*)\n/.exec(text)
 
@@ -225,7 +220,7 @@ module.exports = (input_dir, output_dir, working_dir)->
         </script>
 
         <div id="static_page" style="max-width: 800px; margin:2em auto;">
-            <a id="logo" href="/" style="text-decoration: none; font-size: 8em; color:black;">myou.cat</a>
+            <a id="logo" href="/" style="text-decoration: none; font-size: 8em; color:black;">[LOGO_TEXT]</a>
             [MAIN_MENU]<br>
             <a id="parent_card" href="[PARENT_URL]" style="font-size: 1.5em; margin-top:1em; display:[PARENT_DISPLAY];">Back to: [PARENT_ID]</a><br>
             <div id="card_title" style="font-weight:700; font-size: 3em; margin-top:1em;">[TITLE]</div><br>
@@ -299,12 +294,13 @@ module.exports = (input_dir, output_dir, working_dir)->
 
                         html = page_template
                             .replace(/\[TITLE\]/g, item.id)
-                            .replace('[DESCRIPTION]', item?.attributes?.description or 'Myou is a cat.')
+                            .replace('[DESCRIPTION]', item?.attributes?.description or description)
                             .replace('[CARD]', '<div style="font-weight: 700 font-size: 3em>item.id</div>"')
                             .replace('[PARENT_ID]', item_parent?.attributes?.title or item_parent?.id)
                             .replace('[PARENT_URL]', item_parent_path + '/')
                             .replace('[PARENT_DISPLAY]', (item_parent? and 'block') or 'none')
                             .replace('[CHILDREN]', children)
+                            .replace('[LOGO_TEXT]', logo_text)
 
                         root_opath = path.join(root_output_path, item.id).replace(/\\/g, '/') + '/'
                         if not fs.existsSync root_opath
@@ -387,6 +383,8 @@ module.exports = (input_dir, output_dir, working_dir)->
                         .replace('[PARENT_URL]', item_parent_path + '/')
                         .replace('[PARENT_DISPLAY]', (item_parent? and item_path != '/about/introduction' and 'block') or 'none')
                         .replace('[CHILDREN]', children)
+                        .replace('[LOGO_TEXT]', logo_text)
+
 
                     if not fs.existsSync root_opath
                         fs.mkdirSync root_opath
