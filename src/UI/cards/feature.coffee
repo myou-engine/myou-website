@@ -10,6 +10,8 @@ class Feature extends Card
     constructor: (tag, settings)->
         super tag
         @settings = settings
+        @video_time = 0
+        @video_opacity = 0
 
     on_init: ->
         if @settings.intro
@@ -18,11 +20,36 @@ class Feature extends Card
             load_settings = load_json '/' + @tag + '.json'
         load_settings.then (settings)=>
             @settings = {@settings..., settings...}
+            if @settings.image?.endsWith '.mp4' #TODO: detect video
+                @video_ref = React.createRef()
+                @mounted_promise.then =>
+                    @video_ref.current.currentTime = @settings.start or 0.0
+                    @video_ref.current.muted = true
+                @add_on_screen_callback =>
+                    console.log 'VIDEO ON SCREEN:', @video_ref.current
+                    @mounted_promise.then =>
+                        load_promise = @video_ref.current.load()
+                        @video_ref.current.currentTime = @video_time
+                        @video_ref.current.play()
+                @add_out_of_screen_callback =>
+                    console.log 'VIDEO OUT OF SCREEN:', @video_ref
+                    @video_time = @video_ref.current.currentTime
+                    src = @video_ref.current.src
+                    @video_ref.current.pause()
+                    @video_time = @video_ref.current.currentTime
+                    @video_ref.current.src = ''
+                    @video_ref.current.load()
+                    @video_ref.current.src = src
+                    @video_ref.current.style.opacity = @video_opacity = 0
+
             @create_card()
 
     create_card: ->
         {tag, title, intro, image, applet, flip } = @settings
         absolute_image = "/#{@tag[...@tag.lastIndexOf('/')]}/" + image
+        console.log (absolute_image and mixins.bgImg(
+            absolute_image, 'transparent', 'center', 'cover'
+            )) or 'transparent'
         card = @
 
         @canvas_enabled = false
@@ -35,12 +62,18 @@ class Feature extends Card
         image_opacity = 0
         class ImageComponent extends React.Component
             componentDidMount: ->
-                if image then load_image(absolute_image).then ()=>
-                    image_href = absolute_image
-                    card.mounted and @forceUpdate()
-                    requestAnimationFrame =>
-                        image_opacity = 1
+                if image
+                    if not card.video_ref then load_image(absolute_image).then ()=>
+                        image_href = absolute_image
                         card.mounted and @forceUpdate()
+                        requestAnimationFrame =>
+                            image_opacity = 1
+                            card.mounted and @forceUpdate()
+                    else
+                        card.mounted and @forceUpdate()
+                        requestAnimationFrame =>
+                            image_opacity = 1
+                            card.mounted and @forceUpdate()
 
             render: ->
                 e 'div',
@@ -49,12 +82,33 @@ class Feature extends Card
                     style: {
                         width: '100%'
                         height: if vertical_mode then  Math.max(innerWidth, innerHeight) * 0.3 else '100%'
-                        background: (image_href and mixins.bgImg(
-                            image_href, 'transparent', 'center', 'cover'
+                        background: (absolute_image and mixins.bgImg(
+                            '"'+ absolute_image + '"', 'transparent', 'center', 'cover'
                             )) or 'transparent'
                         opacity: image_opacity
+                        overflow: 'hidden'
                         (mixins.transition '1s', 'opacity')...
                     }
+                    if card.video_ref
+                        e 'video',
+                            id: card.tag + '.feature_image.video'
+                            key: card.tag + '.feature_image.video'
+                            src: absolute_image
+                            # autoPlay: 'autoPlay'
+                            loop: 'loop'
+                            preload: 'none'
+                            ref: card.video_ref
+                            onCanPlay: ->
+                                card.video_ref.current.style.opacity = card.video_opacity = 1
+                            style: {
+                                position: 'relative'
+                                width: "100%"
+                                height: "100%"
+                                objectFit: "cover"
+                                objectPosition: "center"
+                                opacity: card.video_opacity
+                                mixins.transition('1000ms', 'opacity')...
+                            }
 
         class ContentComponent extends React.Component
             constructor: (props={})->
@@ -62,7 +116,7 @@ class Feature extends Card
                 @state = line_size: innerWidth
 
             componentDidMount: ->
-                @update_text_size = new TimeLimitedEventListener 2000, =>
+                @update_text_size = =>#new TimeLimitedEventListener 2000, =>
                     element = ReactDOM.findDOMNode(@)
                     rect = element.getBoundingClientRect()
                     old_line_size = parseInt(@state.line_size)
@@ -71,7 +125,7 @@ class Feature extends Card
                         card.card_manager?.update_and_fix_jump =>
                             @setState line_size: new_line_size
 
-                .event_sensor
+                # .event_sensor
                 @update_text_size()
                 addEventListener 'resize', @update_text_size
 
@@ -157,6 +211,38 @@ class Feature extends Card
             componentWillMount: ->
                 vertical_mode = @check_vertical_mode()
             render: ->
+                gradient_props = {
+                    top: 'auto'
+                    bottom: 'auto'
+                    left: 'auto'
+                    right: 'auto'
+                    width: '101%'
+                    height: '101%'
+                }
+                gradient_orientation_to = 'right'
+
+                if vertical_mode
+                    gradient_props.bottom = 0
+                    gradient_props.right = 0
+                    gradient_props.width = '101%'
+                    gradient_props.height = '20%'
+                    gradient_orientation_to = 'top'
+
+                else if flip
+                    gradient_props.bottom = 0
+                    gradient_props.right = 0
+                    gradient_props.width = '20%'
+                    gradient_props.height = '101%'
+                    gradient_orientation_to = 'left'
+                else
+                    gradient_props.bottom = 0
+                    gradient_props.left = 0
+                    gradient_props.width = '20%'
+                    gradient_props.height = '101%'
+                    gradient_orientation_to = 'right'
+
+
+
                 e 'div',
                     id: card.tag + '.feature'
                     style: {
@@ -200,6 +286,24 @@ class Feature extends Card
                                     gl_options: {alpha:false, antialias:true}
                                     auto_resize_to_canvas: false
                                 }
+                        e 'div',
+                            id: card.tag + '.gradient'
+                            key: card.tag + '.gradient'
+                            style: {
+                                width: gradient_props.width
+                                height: gradient_props.height
+                                left: gradient_props.left
+                                right: gradient_props.right
+                                top: gradient_props.top
+                                bottom: gradient_props.bottom
+                                position: 'absolute'
+                                background: mixins.smooth_gradient
+                                    to: gradient_orientation_to
+                                    a: theme.colors.light
+                                    b: "rgba(239, 239, 239, 0)"
+                                    steps: 10
+
+                            }
 
                     if vertical_mode or flip
                         e ContentComponent, key:card.tag+'.feature_content'

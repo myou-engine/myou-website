@@ -60,14 +60,16 @@ var config = {
         extensions: [".webpack.js", ".web.js", ".js", ".coffee", ".json"],
         alias: {
             // You can use this to override some packages and use local versions
-            //'myoui': path.resolve(__dirname+'/../myoui'),
+            'myoui': path.resolve(__dirname+'/../myoui'),
+            'myou-applet': path.resolve(__dirname+'/../myou-applet'),
         },
     },
     node: false,
 }
 
 module.exports = (env) => {
-    if(env && (env.prod)){
+    if(env && (env.release)){
+        console.log('RELEASE')
         config.plugins.push(new UglifyJsPlugin({
             //minimize: true,
             mangle: true,
@@ -91,6 +93,7 @@ module.exports = (env) => {
             config.devtool = 'cheap-module-eval-source-map';
         }
     }else{
+        console.log('DEBUG')
         config.devtool = 'cheap-module-eval-source-map';
     }
     return config

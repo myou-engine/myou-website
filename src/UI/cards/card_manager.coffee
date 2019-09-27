@@ -39,6 +39,7 @@ class CardManager extends React.Component
 
     constructor: (props={})->
         super props
+        window.$card_manager = @
         @cards = @props.cards or []
         if @props.card_index
             @create_cards_from_index @props.card_index, ''
@@ -154,6 +155,17 @@ class CardManager extends React.Component
         addEventListener 'scroll', =>
             @_cards_on_screen_sensor()
         requestAnimationFrame => @_cards_on_screen_sensor()
+
+    init_everything: (tag)->
+        Promise.all(
+            for card in @cards
+                if card.initiated
+                    continue
+                card.init()
+        ).then =>
+            @all_cards_initiated = true
+            @forceUpdate()
+            return @cards_by_tag[tag]
 
     _init_chunk: (tag, before=0, after=0, first_card_options={}, other_cards_options={})->
         {card_tags, cards_by_tag, cards} = @
@@ -281,44 +293,62 @@ class CardManager extends React.Component
         card_chunk = @_get_chunk_that_contains get_tag_from_path()
         header_tag = @cards[0].tag
         footer_tag = @cards[@cards.length - 1].tag
-        e 'div',
-            id: 'InfiniteScroll'
-            style: {
-                mixins.columnFlex...
-                width: '100%'
-                paddingBottom: 20
-                minHeight: 0
-                minWidth: 0
-            }
 
-            e LoadingIcon,
-                key:'loading_top'
-                color: @_winner_color
-                init_more: @_init_above
-                should_enable: =>
-                    tag = get_tag_from_path()
-                    (tag != header_tag or tag not in @card_tags) and (card_chunk[0] != header_tag)
+        [
+            e 'div',
+                id: 'InfiniteScroll'
+                style: {
+                    mixins.columnFlex...
+                    width: '100%'
+                    paddingBottom: 20
+                    minHeight: 0
+                    minWidth: 0
+                }
 
-            for tag in card_chunk
-                @cards_by_tag[tag].react_element
+                # e LoadingIcon,
+                #     key:'loading_top'
+                #     color: @_winner_color
+                #     init_more: @_init_above
+                #     should_enable: =>
+                #         tag = get_tag_from_path()
+                #         (tag != header_tag or tag not in @card_tags) and (card_chunk[0] != header_tag)
 
-            e LoadingIcon,
-                key:'loading_bottom'
-                color: @_winner_color
-                init_more: @_init_below
-                should_enable: -> card_chunk.length and card_chunk[card_chunk.length-1] != footer_tag
+                for tag in card_chunk
+                    @cards_by_tag[tag].react_element
+                #
+                # e LoadingIcon,
+                #     key:'loading_bottom'
+                #     color: @_winner_color
+                #     init_more: @_init_below
+                #     should_enable: -> card_chunk.length and card_chunk[card_chunk.length-1] != footer_tag
+
+            e 'div',
+                style: {
+                    zIndex: 10000000
+                    background: if @all_cards_initiated then 'transparent' else 'white'
+                    position: 'fixed'
+                    top: 0
+                    left: 0
+                    width: '100vw'
+                    height: '100vh'
+                    pointerEvents: 'none'
+                    mixins.transition('1000ms', 'background')...
+                }
+        ]
 
     # Goto will init the card where we can go and then will change the scroll
     # to set the card on the top of the screen.
     # It should be called each manual hash change or when following a link to an anchor.
     goto: (tag=location.hash[1...], options)->
         console.log '-------------------------------------\nGO TO: ' + tag + '\n-------------------------------------'
+        tag = tag.replace /%20/g, ' '
         tag = tag or @cards[0].tag
         if not @cards_by_tag[tag]?
-            console.warn 'No tag found: "' + tag + '"'
+            console.warn 'Tag not found: "' + tag + '"'
             tag = @cards[0].tag
 
-        {first_card, full_chunk} = @_init_chunk(tag, 4, 4, options)
+        # {first_card, full_chunk} = @_init_chunk(tag, 100, 100, options)
+        @all_cards_promise = first_card = full_chunk = @init_everything(tag)
 
         full_chunk.then =>
             console.log 'full chunk loaded.',
@@ -347,31 +377,49 @@ class CardManager extends React.Component
     # NOTE: this function must be called on every component update which could
     # push down other cards.
     update_and_fix_jump: (update_function)->
-        tag = location.hash[1...] or @cards[0].tag
-
-        if not location.hash
+        hash = location.hash
+        if hash
+            tag = location.hash[1...]
+        else
             pathname = location.pathname
             path = pathname[1...location.pathname.length - 1]
-            history.replaceState undefined, undefined, '/#' + path
+            # history.replaceState undefined, undefined, '/#' + path
             tag = path
 
-        active_card = document.getElementById tag
+        window.active_card = document.getElementById tag
 
-        #TODO: Check if it stills being necessary
+        # TODO: Check if it stills being necessary
         if not active_card
             update_function()
-            if pathname
-                history.replaceState undefined, undefined, pathname
+            # if pathname
+            #     history.replaceState undefined, undefined, pathname
             return
 
-        old_top = active_card.getBoundingClientRect().top
-        update_function()
-        scroll_jump = active_card.getBoundingClientRect().top - old_top
-        if scroll_jump
-            scrollBy 0, scroll_jump
+        ref_card = null
+        for card in @cards
+            if card.mounted
+                ref_card = card
+        if not ref_card
+            return
+        console.log "CURRENT REF", ref_card.tag
+        ref_card_el = document.getElementById ref_card.tag
 
-        if pathname
-            history.replaceState undefined, undefined, pathname
+        if not window.old_top?
+            window.old_top = ref_card_el.getBoundingClientRect().top
+            update_function()
+        else
+            update_function()
+            return
+
+        scroll_jump = ref_card_el.getBoundingClientRect().top - window.old_top
+        window.old_top = null
+
+        # if scroll_jump
+        #     scrollBy 0, scroll_jump
+
+        # if pathname
+        #     history.replaceState undefined, undefined, pathname
+
 
 # loading_icon is a component which will be rendered when there are cards which
 # are not loaded yet. And when this icon is on screen, it will load more cards.
@@ -393,7 +441,7 @@ class LoadingIcon extends React.Component
                 if 0 <= bottom and top <= innerHeight
                     on_screen = true
             if on_screen
-                @props.init_more 4
+                @props.init_more 100
 
             @setState
                 enabled: @props.should_enable()
@@ -414,19 +462,19 @@ class LoadingIcon extends React.Component
         e 'div',
             id: @props.id
             className: 'loading_icon_container'
-            style:
-                width: size
-                height: (enabled and size) or 0
-                pointerEvents: 'none'
-                padding: (enabled and size * 0.05) or 0
-                borderRadius: '100%'
-                background: 'white'
-                margin: (enabled and size*2) or 0
-                opacity: (enabled and 1) or 0
-                boxShadow: theme.shadows.box
-
-            if enabled
-                e LoadingSpinner, color: @state.color
+            # style:
+            #     width: size
+            #     height: (enabled and size) or 0
+            #     pointerEvents: 'none'
+            #     padding: (enabled and size * 0.05) or 0
+            #     borderRadius: '100%'
+            #     background: 'white'
+            #     margin: (enabled and size*2) or 0
+            #     opacity: (enabled and 1) or 0
+            #     boxShadow: theme.shadows.box
+            #
+            # if enabled
+            #     e LoadingSpinner, color: @state.color
 
 # this is the visual representation of the loading icon.
 # It is a svg animated spinner.

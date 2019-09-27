@@ -72,6 +72,7 @@ class Card
                 console.log 'Unmounting', card.tag
                 card._restore_promises()
                 card._set_out_of_screen()
+                
             shouldComponentUpdate: ->
                 not @state.opacity
 
@@ -94,6 +95,7 @@ class Card
                         opacity: @state.opacity or 0
                         fontFamily: 'OpenSans, sans-serif'
                         fontWeight: 300
+                        # transform: if @state.opacity then 'scale(1)' else 'scale(1.05)'
                         card.style...
                     }
                     e 'div', # this is the actual anchor of the card
@@ -146,7 +148,7 @@ class Card
         @is_on_screen = true
 
     _set_out_of_screen: -> if @is_on_screen
-        @_restore_mounted_promise()
+        @_restore_on_screen_promise()
         for c in @_out_of_screen_callbacks
             c()
         @is_on_screen = false

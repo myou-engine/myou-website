@@ -41,6 +41,10 @@ for option in process.argv when ('=' in option) or option.startsWith '-'
             webpack_watch = true
         when '-w'
             webpack_watch = true
+        when '--compress'
+            compress = true
+        when '-c'
+            compress = true
         else
             # node debugger options
             if option not in ['--inspect', '--debug-brk']
@@ -71,7 +75,6 @@ mkdir '-p', tmp_dir #it will also create config.output dir
 category_colors = JSON.stringify(config.category_colors or {})
 rel_logo = path.relative  path.join(__dirname, 'src/content'), config.logo
 
-
 logo = "require '#{rel_logo.replace /\\/g, '/'}'"
 theme = """
 module.exports =
@@ -82,7 +85,13 @@ console.log theme
 fs.writeFileSync path.join(__dirname, 'src/content', 'custom_theme.coffee'), theme
 
 if prerender_cards
-    require('./tools/prerender_cards.coffee') config.cards, tmp_dir, working_dir
+    require('./tools/prerender_cards.coffee') {
+        input_dir: config.cards
+        output_dir: tmp_dir
+        working_dir
+        title: config.title
+        description: config.description
+    }
     for i in ls tmp_dir
         old_path = path.join config.output, i
         if fs.existsSync old_path
@@ -93,7 +102,10 @@ rm '-r', config.output + '.tmp'
 add_indent = (string, indent=0)->
     string.replace /\n/g, "\n#{'    '.repeat(indent)}"
 
-ln '-s', path.join(working_dir, config.data), path.join(config.output, 'data')
+output_data_path = path.join(config.output, 'data')
+rm output_data_path
+rm '-r', output_data_path
+ln '-s', path.join(working_dir, config.data), output_data_path
 
 if compile_applets
     build_src = path.join config.output, 'src'
@@ -139,4 +151,22 @@ if compile_applets
     fs.writeFileSync wpc_path, wpc
 
     cd __dirname
-    spawnSync 'node', [path.join(__dirname, '/node_modules/webpack/bin/webpack.js'), '-w' if webpack_watch], {stdio: 'inherit', shell: true}
+    spawnSync 'node', [path.join(__dirname, '/node_modules/webpack/bin/webpack.js'), if webpack_watch then '-w' else "--env.release"], {stdio: 'inherit', shell: true}
+
+    compressible_files = [
+        'js', 'html', 'css', 'svg',
+        'woff', 'mesh', 'json',
+    ]
+    recursive_gz = (path)->
+        for i in ls path
+            full_path = path + '/' + i
+            if test '-d', full_path # if is path
+                recursive_gz full_path
+            else
+                extension = full_path.split('.').pop()
+                if extension in compressible_files
+                    exec 'gzip -vfk ' + full_path
+
+    if compress
+        abs_output = path.join working_dir, config.output
+        recursive_gz(abs_output)

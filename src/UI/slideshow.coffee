@@ -7,11 +7,19 @@ class SlideShow
     # A simple slideshow which can with play and pause functions.
     # each slide is downloaded only when it will be shown.
 
-    constructor: (@id, slide_urls=[], @slide_duration=4, @alignment='center')->
+    constructor: (settings)->
+        {id, slide_urls=[], slide_duration=4, alignment='center', fill='cover',force_aspect_ratio=false} = settings
+        @id = id
+        @slide_duration = slide_duration
+        @alignment = alignment
+        @fill = fill
+        @force_aspect_ratio = force_aspect_ratio
         @_active = 0
         @_initiated = false
         @_playing = false
         @_interval = null
+        @parent_height = null
+        @slideshow_ref = React.createRef()
 
         @resolve_mounted_promise = null
         @mounted_promise = new Promise (resolve, reject)=>
@@ -20,6 +28,8 @@ class SlideShow
         self = @
 
         @slides = []
+        @aspect_ratio = 16/9
+        @aspect_ratio_callbacks = []
         for url in slide_urls
             @slides.push
                 url: url
@@ -28,10 +38,18 @@ class SlideShow
         class SlideComponent extends React.Component
 
             componentDidMount: ->
-                self.slides[@props.index].set_href = (url)=>
+                self.slides[@props.index].set_img = (img_info)=>
+                    {url, aspect_ratio} = img_info
+                    if @props.index == 0
+                        self.aspect_ratio = aspect_ratio
+                        aspect_ratio_changed = true
+                        console.log 'ASPECT RATIO', aspect_ratio
                     slide = self.slides[@props.index]
+                    slide.aspect_ratio = aspect_ratio
                     if slide.href != url
                         slide.href = url
+                        href_changed = true
+                    if aspect_ratio_changed or href_changed
                         self.mounted and @forceUpdate()
 
                 self.slides[@props.index].set_visibility = (v)=>
@@ -58,12 +76,11 @@ class SlideShow
                                     '"' + slide.href + '"'
                                     'transparent'
                                     self.alignment
-                                    'cover'
+                                    self.fill
                                 )
                             else 'transparent'
                         opacity: slide.visible
                         (mixins.transition '1s', 'opacity')...
-                        (mixins.rowFlex)...
                     }
 
         slide_elements = []
@@ -77,13 +94,24 @@ class SlideShow
 
             slide_elements.push slide.element
             slide.loader = ->
-                load_image(@url).then =>
-                    @set_href @url
+                load_image(@url).then (img)=>
+                    @set_img {@url, aspect_ratio:img.width/img.height}
+                    console.log 'IMAGEN CARGADA:', img
+                    console.log 'RESOLUCION:', img.width, img.height
 
-        class Component extends React.Component
+
+        self.component = class Component extends React.Component
             componentDidMount: ->
+                slideshow_element = self.slideshow_ref.current
+
                 self.mounted = true
                 self.resolve_mounted_promise()
+
+                if force_aspect_ratio
+                    self.parent_height = slideshow_element.getBoundingClientRect()['height']
+                    console.log 'HEIGHT:', self.parent_height
+                    @forceUpdate()
+
                 self._update = =>
                     current_slide = self.slides[self._active]
                     if not current_slide
@@ -101,25 +129,44 @@ class SlideShow
                             self.visible = 1
                             self.mounted and @forceUpdate()
 
+                addEventListener 'resize', =>
+                    slideshow_element = self.slideshow_ref.current
+                    self.parent_height = slideshow_element.parentElement.getBoundingClientRect()['height']
+                    self.mounted and @forceUpdate()
+
             componentWillUnmount: ->
                 self.mounted = false
 
             render: ->
+                style = @props.style or {}
+                width = height = '100%'
+                if self.force_aspect_ratio and self.parent_height
+                    height = self.parent_height + 4 #I don't know why I need theese 4px extra
+                    width = self.parent_height * self.aspect_ratio
+
                 e 'div',
-                    className: 'SlideShow'
+                    className: 'SlideShowContainer'
+                    ref: self.slideshow_ref
                     style: {
                         position: 'absolute'
-                        width: '100%'
-                        height: '100%'
-                        overflow: 'hidden'
+                        width
+                        height
                         opacity: self.visible
                         pointerEvents: (self.visible and 'all') or 'none'
                         (mixins.transition '1s', 'opacity')...
+                        style...
                     }
+                    e 'div',
+                        className: 'SlideShow'
+                        style: {
+                            height: '100%'
+                            width: '100%'
+                            overflow: 'hidden'
+                        }
 
-                    slide_elements
+                        slide_elements
+                    @props.children
 
-        @react_element = e Component
 
     _update: ->
         console.warn 'You are trying to update slideshow before mount it'
@@ -148,6 +195,10 @@ class SlideShow
         @_initiated = true
         @initiated_promise = @initiated_promise or @mounted_promise.then =>
             @_update()
+
+
+
+
 
 
 

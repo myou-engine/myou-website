@@ -1,4 +1,5 @@
 load_text = (url) -> new Promise (resolve, reject)->
+    url = url.replace /\ /g, '%20'
     fetch(url).then (response)->
         if response.ok
             response.text().then (text)->
@@ -8,6 +9,7 @@ load_text = (url) -> new Promise (resolve, reject)->
             reject()
 
 load_json = (url) -> new Promise (resolve, reject)->
+    url = url.replace /\ /g, '%20'
     fetch(url).then (response)->
         if response.ok
             response.json().then (data)->
@@ -21,6 +23,7 @@ load_json = (url) -> new Promise (resolve, reject)->
 # load_image = require('image-promise')
 extension_re = new RegExp /\.[0-9a-z]+$/i
 load_image = (url)-> new Promise (resolve, reject)->
+    url = url.replace /\ /g, '%20'
     extension = extension_re.exec(url)[0].toLowerCase()[1...]
     if extension in ["mp4", "webm", "ogg", "m4v"]
         element = document.createElement 'video'
@@ -36,7 +39,7 @@ load_image = (url)-> new Promise (resolve, reject)->
             reject 'Failed to load: ' + url
     else
         element = document.createElement 'img'
-        element.addEventListener 'load', -> resolve element
+        element.addEventListener 'load', (image)-> resolve element
         element.addEventListener 'error', -> reject 'Failed to load: ' + url
 
 
